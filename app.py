@@ -1,82 +1,92 @@
 import os
-from flask import Flask, render_template, request, jsonify, session
+from flask import Flask, render_template, request, jsonify
 from flask_cors import CORS
-from uuid import uuid4
+import uuid
+import time
 
 app = Flask(__name__)
-app.secret_key = "clave_secreta_unica"
 CORS(app)
 
 # Estado global del juego
 grid = [[0 for _ in range(3)] for _ in range(3)]
 juego_activo = True
-jugadores = []
+jugadores = {}  # id_usuario -> jugador_numero (1 o 2)
+turno_actual = 1
+ultimo_movimiento = time.time()
 
 @app.route("/")
 def index():
-    if "jugador_id" not in session:
-        jugador_id = str(uuid4())
-        if len(jugadores) < 2:
-            jugadores.append(jugador_id)
-            session["jugador_id"] = jugador_id
-        else:
-            session["jugador_id"] = "espectador"
     return render_template("index.html")
 
-@app.route("/estado")
+@app.route("/unirse", methods=["POST"])
+def unirse():
+    global jugadores
+    # Elimina jugadores inactivos (>5min)
+    ahora = time.time()
+    jugadores = {uid: (num, t) for uid, (num, t) in jugadores.items() if ahora - t < 300}
+
+    if len(jugadores) >= 2:
+        return jsonify({"error": "Sala llena"}), 403
+
+    uid = str(uuid.uuid4())
+    numero = 1 if 1 not in [j[0] for j in jugadores.values()] else 2
+    jugadores[uid] = (numero, ahora)
+    return jsonify({"uid": uid, "jugador": numero})
+
+@app.route("/estado", methods=["POST"])
 def estado():
-    jugador_id = session.get("jugador_id")
-    turno = jugadores[0] if len(jugadores) == 2 and sum(cell != 0 for row in grid for cell in row) % 2 == 0 else jugadores[1]
-    jugador_num = jugadores.index(jugador_id) + 1 if jugador_id in jugadores else 0
+    data = request.get_json()
+    uid = data.get("uid")
+    if uid not in jugadores:
+        return jsonify({"error": "Jugador no válido"}), 403
+
+    # Actualiza último acceso
+    jugadores[uid] = (jugadores[uid][0], time.time())
     return jsonify({
         "grid": grid,
         "activo": juego_activo,
-        "jugador": jugador_num,
-        "turno": jugadores.index(turno) + 1 if turno in jugadores else 0
+        "turno": turno_actual,
+        "soy": jugadores[uid][0]
     })
 
 @app.route("/jugar", methods=["POST"])
 def jugar():
-    global grid, juego_activo
+    global grid, juego_activo, turno_actual, ultimo_movimiento
+    data = request.get_json()
+    uid = data.get("uid")
+    pos = data.get("pos")
 
     if not juego_activo:
         return jsonify({"error": "Juego terminado."}), 400
-
-    jugador_id = session.get("jugador_id")
-    if jugador_id not in jugadores:
-        return jsonify({"error": "No autorizado."}), 403
-
-    turno = jugadores[0] if sum(cell != 0 for row in grid for cell in row) % 2 == 0 else jugadores[1]
-    if jugador_id != turno:
-        return jsonify({"error": "No es tu turno."}), 400
-
-    data = request.get_json()
-    pos = data.get("pos")
+    if uid not in jugadores:
+        return jsonify({"error": "Jugador no válido"}), 403
+    jugador = jugadores[uid][0]
+    if jugador != turno_actual:
+        return jsonify({"error": "No es tu turno"}), 403
 
     row, col = pos // 3, pos % 3
     actual = grid[row][col]
 
-    if actual == 0:
-        grid[row][col] = 1  # Verde
-    elif actual == 1:
-        grid[row][col] = 2  # Amarillo
-    elif actual == 2:
-        grid[row][col] = 3  # Rojo
-    else:
-        return jsonify({"error": "No se puede reemplazar más."}), 400
+    # Reglas: 0→1, 1→2, 2→3
+    if actual == 3 or (actual != jugador and actual != 0):
+        return jsonify({"error": "Movimiento inválido"}), 400
+
+    grid[row][col] = actual + 1
 
     if check_ganador():
         juego_activo = False
         return jsonify({"victoria": True})
+
+    turno_actual = 1 if turno_actual == 2 else 2
+    ultimo_movimiento = time.time()
     return jsonify({"ok": True})
 
 @app.route("/reiniciar", methods=["POST"])
 def reiniciar():
-    global grid, juego_activo, jugadores
+    global grid, juego_activo, turno_actual
     grid = [[0 for _ in range(3)] for _ in range(3)]
     juego_activo = True
-    jugadores = []
-    session.pop("jugador_id", None)
+    turno_actual = 1
     return jsonify({"ok": True})
 
 def check_ganador():

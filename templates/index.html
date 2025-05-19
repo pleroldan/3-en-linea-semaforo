@@ -6,50 +6,74 @@
   <link rel="stylesheet" href="/static/style.css" />
 </head>
 <body>
-  <h1>Ta-Te-Ti Semáforo 🌑</h1>
-  <div id="tablero"></div>
+  <h1>Ta-Te-Ti Semáforo 🚦</h1>
   <div id="mensaje"></div>
+  <div id="tablero"></div>
   <button onclick="reiniciar()">Reiniciar</button>
 
   <script>
-    let jugador = 0;
-    let turno = 0;
+    let uid = null;
+    let soy = null;
+    let turno = 1;
+    let activo = false;
+
+    async function unirse() {
+      const res = await fetch("/unirse", { method: "POST" });
+      if (!res.ok) {
+        document.getElementById("mensaje").textContent = "Sala llena. Intenta más tarde.";
+        return;
+      }
+      const data = await res.json();
+      uid = data.uid;
+      soy = data.jugador;
+      cargarEstado();
+      setInterval(cargarEstado, 1500);
+    }
 
     function cargarEstado() {
-      fetch("/estado").then(res => res.json()).then(data => {
-        jugador = data.jugador;
-        turno = data.turno;
-
-        const tablero = document.getElementById("tablero");
-        tablero.innerHTML = "";
-        data.grid.flat().forEach((valor, i) => {
-          const celda = document.createElement("div");
-          celda.className = "celda";
-          if (valor === 1) celda.classList.add("verde");
-          if (valor === 2) celda.classList.add("amarillo");
-          if (valor === 3) celda.classList.add("rojo");
-          celda.textContent = valor === 1 ? "V" : valor === 2 ? "A" : valor === 3 ? "R" : "";
-          celda.onclick = () => jugar(i);
-          tablero.appendChild(celda);
-        });
-
-        const mensaje = document.getElementById("mensaje");
-        if (jugador === 0) {
-          mensaje.textContent = "Sala llena. Estás como espectador.";
-        } else if (jugador === turno) {
-          mensaje.textContent = `Tu turno (Jugador ${jugador})`;
-        } else {
-          mensaje.textContent = `Esperando movimiento del Jugador ${turno}...`;
+      fetch("/estado", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ uid })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.error) {
+          document.getElementById("mensaje").textContent = data.error;
+          return;
         }
+        activo = data.activo;
+        turno = data.turno;
+        soy = data.soy;
+        actualizarTablero(data.grid);
+        document.getElementById("mensaje").textContent =
+          activo
+            ? (turno === soy ? `Tu turno (Jugador ${soy})` : `Esperando Jugador ${turno}...`)
+            : "¡Juego terminado!";
+      });
+    }
+
+    function actualizarTablero(grid) {
+      const tablero = document.getElementById("tablero");
+      tablero.innerHTML = "";
+      grid.flat().forEach((valor, i) => {
+        const celda = document.createElement("div");
+        celda.className = "celda";
+        if (valor === 1) celda.classList.add("verde");
+        if (valor === 2) celda.classList.add("amarillo");
+        if (valor === 3) celda.classList.add("rojo");
+        celda.textContent = valor === 0 ? "" : valor === 1 ? "V" : valor === 2 ? "A" : "R";
+        celda.onclick = () => jugar(i);
+        tablero.appendChild(celda);
       });
     }
 
     function jugar(pos) {
-      if (jugador !== turno) return;
+      if (!activo || turno !== soy) return;
       fetch("/jugar", {
         method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({ pos })
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ uid, pos })
       }).then(() => cargarEstado());
     }
 
@@ -57,8 +81,7 @@
       fetch("/reiniciar", { method: "POST" }).then(() => cargarEstado());
     }
 
-    setInterval(cargarEstado, 1000);
-    cargarEstado();
+    unirse();
   </script>
 </body>
 </html>
