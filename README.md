@@ -56,10 +56,10 @@ Si el tablero se llena sin que se forme una línea de tres colores iguales, se d
 
 
 
-ta_te_ti/  
-│  
+proyecto/  
 ├── app.py  
-├── templates/  
-│   └── index.html  
+├── requirements.txt
 ├── static/  
-    └── style.css  
+│   └── style.css  
+└── templates/
+    └── index.html  

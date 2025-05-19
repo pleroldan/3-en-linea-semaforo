@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Ta-Te-Ti Semáforo</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <h1>Ta-Te-Ti Semáforo 🌱</h1>
+  <div id="tablero"></div>
+  <div id="mensaje"></div>
+  <button onclick="reiniciar()">Reiniciar</button>
+
+  <script>
+    let activo = true;
+
+    function cargarEstado() {
+      fetch("/estado")
+        .then(res => res.json())
+        .then(data => {
+          activo = data.activo;
+          const tablero = document.getElementById("tablero");
+          tablero.innerHTML = "";
+          data.grid.flat().forEach((valor, i) => {
+            const celda = document.createElement("div");
+            celda.className = "celda";
+            if (valor === 1) celda.classList.add("verde");
+            celda.textContent = valor === 1 ? "V" : "";
+            celda.setAttribute("role", "button");
+            celda.setAttribute("tabindex", "0");
+            celda.onclick = () => jugar(i);
+            celda.addEventListener("keydown", (e) => {
+              if (e.key === "Enter" || e.key === " ") jugar(i);
+            });
+            tablero.appendChild(celda);
+          });
+
+          document.getElementById("mensaje").textContent =
+            activo ? "Turno: Verde (V)" : "¡Victoria del jugador Verde (V)! 🎉";
+        });
+    }
+
+    function jugar(pos) {
+      if (!activo) return;
+      fetch("/jugar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pos })
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.victoria) activo = false;
+          cargarEstado();
+        });
+    }
+
+    function reiniciar() {
+      fetch("/reiniciar", { method: "POST" }).then(() => cargarEstado());
+    }
+
+    cargarEstado();
+  </script>
+</body>
+</html>

@@ -1,3 +1,4 @@
+import os
 from flask import Flask, render_template, request, jsonify
 
 app = Flask(__name__)
@@ -49,5 +50,7 @@ def check_ganador():
     if grid[0][2] != 0 and grid[0][2] == grid[1][1] == grid[2][0]: return True
     return False
 
+# ✅ Solo un bloque main, con puerto de entorno (Render)
 if __name__ == "__main__":
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=True)
