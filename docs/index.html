@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Ta-Te-Ti Semáforo</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <h1>Ta-Te-Ti Semáforo 🌱</h1>
+  <div id="tablero"></div>
+  <div id="mensaje"></div>
+  <button onclick="reiniciar()">Reiniciar</button>
+
+  <script>
+    const API_BASE = "https://three-en-linea-semaforo.onrender.com";
+
+    let turno = 1;
+    let activo = true;
+
+    function cargarEstado() {
+      fetch(`${API_BASE}/estado`)
+        .then(res => res.json())
+        .then(data => {
+          activo = data.activo;
+          turno = data.turno;
+          const tablero = document.getElementById("tablero");
+          tablero.innerHTML = "";
+          data.grid.flat().forEach((valor, i) => {
+            const celda = document.createElement("div");
+            celda.className = "celda";
+            if (valor === 1) celda.classList.add("verde");
+            if (valor === 2) celda.classList.add("amarillo");
+            if (valor === 3) celda.classList.add("rojo");
+            celda.textContent = valor === 0 ? "" : ["", "V", "A", "R"][valor];
+            celda.onclick = () => jugar(i);
+            tablero.appendChild(celda);
+          });
+          document.getElementById("mensaje").textContent = activo
+            ? `Turno jugador ${turno}`
+            : "¡Fin del juego!";
+        });
+    }
+
+    function jugar(pos) {
+      if (!activo) return;
+      fetch(`${API_BASE}/jugar`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pos })
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.victoria) activo = false;
+          cargarEstado();
+        });
+    }
+
+    function reiniciar() {
+      fetch(`${API_BASE}/reiniciar`, { method: "POST" }).then(() => cargarEstado());
+    }
+
+    cargarEstado();
+  </script>
+</body>
+</html>
