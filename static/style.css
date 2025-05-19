@@ -1,9 +1,7 @@
 body {
   font-family: sans-serif;
   text-align: center;
-  background-color: #f9f9f9;
 }
-
 #tablero {
   display: grid;
   grid-template-columns: repeat(3, 100px);
@@ -11,7 +9,6 @@ body {
   margin: 20px auto;
   width: max-content;
 }
-
 .celda {
   width: 100px;
   height: 100px;
@@ -22,24 +19,21 @@ body {
   justify-content: center;
   background: #eee;
   cursor: pointer;
-  user-select: none;
 }
-
 .verde {
   background-color: #4CAF50;
   color: white;
 }
-
+.amarillo {
+  background-color: #FFEB3B;
+  color: black;
+}
+.rojo {
+  background-color: #F44336;
+  color: white;
+}
 button {
   margin-top: 10px;
   padding: 10px 20px;
   font-size: 1em;
-  cursor: pointer;
-}
-
-#mensaje {
-  font-size: 1.5rem;
-  margin-top: 10px;
-  color: #4CAF50;
-  font-weight: bold;
 }
