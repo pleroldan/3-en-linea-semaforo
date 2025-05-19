@@ -6,59 +6,58 @@
   <link rel="stylesheet" href="/static/style.css" />
 </head>
 <body>
-  <h1>Ta-Te-Ti Semáforo 🚦</h1>
+  <h1>Ta-Te-Ti Semáforo 🌑</h1>
   <div id="tablero"></div>
   <div id="mensaje"></div>
   <button onclick="reiniciar()">Reiniciar</button>
 
   <script>
-    let activo = true;
+    let jugador = 0;
+    let turno = 0;
 
     function cargarEstado() {
-      fetch("/estado")
-        .then(res => res.json())
-        .then(data => {
-          activo = data.activo;
-          const turno = data.turno;
-          const tablero = document.getElementById("tablero");
-          tablero.innerHTML = "";
+      fetch("/estado").then(res => res.json()).then(data => {
+        jugador = data.jugador;
+        turno = data.turno;
 
-          data.grid.flat().forEach((valor, i) => {
-            const celda = document.createElement("div");
-            celda.className = "celda";
-            if (valor === 1) celda.classList.add("verde");
-            else if (valor === 2) celda.classList.add("amarillo");
-            else if (valor === 3) celda.classList.add("rojo");
-            celda.textContent = valor === 1 ? "V" : valor === 2 ? "A" : valor === 3 ? "R" : "";
-            celda.onclick = () => jugar(i);
-            tablero.appendChild(celda);
-          });
-
-          document.getElementById("mensaje").textContent = activo
-            ? `Turno: Jugador ${turno}`
-            : "¡Ganador!";
+        const tablero = document.getElementById("tablero");
+        tablero.innerHTML = "";
+        data.grid.flat().forEach((valor, i) => {
+          const celda = document.createElement("div");
+          celda.className = "celda";
+          if (valor === 1) celda.classList.add("verde");
+          if (valor === 2) celda.classList.add("amarillo");
+          if (valor === 3) celda.classList.add("rojo");
+          celda.textContent = valor === 1 ? "V" : valor === 2 ? "A" : valor === 3 ? "R" : "";
+          celda.onclick = () => jugar(i);
+          tablero.appendChild(celda);
         });
+
+        const mensaje = document.getElementById("mensaje");
+        if (jugador === 0) {
+          mensaje.textContent = "Sala llena. Estás como espectador.";
+        } else if (jugador === turno) {
+          mensaje.textContent = `Tu turno (Jugador ${jugador})`;
+        } else {
+          mensaje.textContent = `Esperando movimiento del Jugador ${turno}...`;
+        }
+      });
     }
 
     function jugar(pos) {
-      if (!activo) return;
+      if (jugador !== turno) return;
       fetch("/jugar", {
         method: "POST",
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify({ pos })
-      })
-      .then(res => res.json())
-      .then(data => {
-        if (data.error) alert(data.error);
-        if (data.victoria) activo = false;
-        cargarEstado();
-      });
+      }).then(() => cargarEstado());
     }
 
     function reiniciar() {
-      fetch("/reiniciar", {method: "POST"}).then(() => cargarEstado());
+      fetch("/reiniciar", { method: "POST" }).then(() => cargarEstado());
     }
 
+    setInterval(cargarEstado, 1000);
     cargarEstado();
   </script>
 </body>
